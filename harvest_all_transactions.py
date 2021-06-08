@@ -1,26 +1,18 @@
 import json
-# import datetime
-# import time
 import os
 import subprocess
 import requests
 import traceback
 
-
-
-startBlock = 1 # was 645000 2021-03-16
+startBlock = 1 
 rpcServer = "localhost"
 rpcPort = 22555
 
-rpcUser = "coinye"
-rpcPassword = "coinye"
+rpcUser = "yourUsername"
+rpcPassword = "yourPassword"
 
-transactionFile = "transactions_2021_06.json"
-transactionsCsvFile = "transactions_2021_06.csv"
-
-
-
-
+transactionFile = "transactions.json"
+transactionsCsvFile = "transactions.csv"
 
 class CryptoDaemon:
     def __init__(self, server, user, password, port):
@@ -144,10 +136,6 @@ for blockNr in range(startBlock, lastBlock + 1):
         str_to_file(csvData + "\n", transactionsCsvFile)
 
         txSerialNr += 1
-
-        # if txSerialNr > 10:
-        #     exit()
-
 
     block[blockNr]["tx"]= newTxList
 

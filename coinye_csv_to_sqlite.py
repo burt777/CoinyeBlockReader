@@ -1,31 +1,9 @@
 import csv
 import sqlite3
 
-
-
-
-# c.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='blocks'")
-# tableExists = c.fetchall()[0]
-# print (tableExists ? "Table exists" : "No table exists yet")
-
-#         if not row == 0:
-#             header = row
-#         elif row == 1:
-#             # now we know data types, so we can create a table if it doesn't exist:
-#             if not tableExists:
-#                 c.execute ('''CREATE TABLE IF NOT EXISTS blocks
-#                 (id INTEGER PRIMARY KEY AUTOINCREMENT, userid TEXT, domain TEXT, password      TEXT, webserver TEXT, sqlserver TEXT)''')
-#             conn.commit()
-
-#             print c.execute ("SELECT seq from SQLITE_SEQUENCE WHERE name='blocks'")
-
-#         else:
-
-
-
-#         row++
-# if row == 0: 
-#     print("Error: No csv data found")
+csvFileName = "E:/temp/coinye_stats.csv"
+sqliteFileName = "blockchain2.sqlite"
+tableName = "blocks"
 
 def csvToSqlite(csvFileName, sqliteFileName, tableName, primaryColumn = 0, delimiter = '\t'):
     conn = sqlite3.connect(sqliteFileName)
@@ -162,8 +140,5 @@ def isFloat(inputVar):
 
 
 
-csvFileName = "E:/temp/coinye_stats.csv"
-sqliteFileName = "blockchain2.sqlite"
-tableName = "blocks"
 
 csvToSqlite(csvFileName, sqliteFileName, tableName)
