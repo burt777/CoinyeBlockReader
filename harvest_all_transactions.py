@@ -32,12 +32,12 @@ class CryptoDaemon:
         self.headers = {'content-type': 'application/json'}
 
 
-    def tryMethod(self, command, params, retries = 5):
+    def tryMethod(self, command, params, retries = 8):
         while retries:
             output = self.method(command, params)
             if output is False:
+                time.sleep(16 - (2 *retries))
                 retries -= 1
-                time.sleep(6 - retries)
             else:
                 return output
         print("Out of retries for command {} ({}). ".format(command, params))    
@@ -163,10 +163,18 @@ if __name__ == "__main__":
 
             decode["raw"] = raw
 
-            receiveAddr = []
-            for v in decode["vout"]:
-                for a in v["scriptPubKey"]["addresses"]:
-                    receiveAddr.append(a)
+            try:
+                receiveAddr = []
+                for v in decode["vout"]:
+                    if "addresses" in v["scriptPubKey"]:
+                        for a in v["scriptPubKey"]["addresses"]:
+                            receiveAddr.append(a)
+                    else:
+                        print("Output {} of transaction {} doesn't have a receive address... not sure if this is weird".format(v["n"], txHash))
+            except:
+                print("Problem interpreting block {}\ntx: {}\n\n".format(blockNr, txHash))
+                print(json.dumps(decode, indent = 4))
+                exit()
 
             newTxList[txHash] = decode
 
