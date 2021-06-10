@@ -3,16 +3,20 @@ import os
 import subprocess
 import requests
 import traceback
+import time
 
-startBlock = 1 
+startBlock = 1 # This is only used when there is no tsv file; otherwise, it'll try and resume.
+               # also: Blockchain starts at 1. 
+
+lastBlock = False # False for all the way to the newest and hippest block the Daemon knows
+
 rpcServer = "localhost"
 rpcPort = 22555
 
-rpcUser = "yourUsername"
-rpcPassword = "yourPassword"
+rpcUser = "coinye"
+rpcPassword = "coinye"
 
-transactionFile = "transactions.json"
-transactionsCsvFile = "transactions.csv"
+transactionsTsvFile = "transactions.tsv"
 
 class CryptoDaemon:
     def __init__(self, server, user, password, port):
@@ -27,13 +31,30 @@ class CryptoDaemon:
         self.url = "http://{}:{}@{}:{}".format(self.user, self.password, self.server, self.port)
         self.headers = {'content-type': 'application/json'}
 
+
+    def tryMethod(self, command, params, retries = 5):
+        while retries:
+            output = self.method(command, params)
+            if output is False:
+                retries -= 1
+                time.sleep(6 - retries)
+            else:
+                return output
+        print("Out of retries for command {} ({}). ".format(command, params))    
+
+        # Do you want to 
+        exit()
+        # or
+        # return False
+
+
     def method(self, command, params):
         payload = json.dumps({"method": command, "params": params, "jsonrpc": "2.0"})
 
         try:        
             responseRaw = requests.get(self.url, headers = self.headers, data = payload)
         except:
-            print("RCP Not responding...", end = "")
+            print("RCP Not responding... ", end = "")
             return False
 
         response = responseRaw.json()
@@ -51,7 +72,6 @@ class CryptoDaemon:
     
     def getBlockHash(self, blockHeight):
         return self.method("getblockhash", [blockHeight])
-
 
     def getBlockByHash(self, blockHash):
         return self.method("getblock", [blockHash])
@@ -87,59 +107,103 @@ def load_json(inputFilename):
         return jsonObject
 
     except Exception as e:
-        # errorString = traceback.format_exc()
-        # print(errorString)
-        # print("New Json object (no file found at {})".format(inputFilename))
         return {}
 
+def tail(filename, nrOfLines):
+    fileSize = os.path.getsize(filename)
+    readSize, lines = 40 * (nrOfLines + 1), []
+    with open(filename, 'r') as f:
+        while len(lines) <= nrOfLines:
+            try:
+                f.seek(fileSize - readSize, 0)
+            except IOError:
+                f.seek(0)
+                break
+            finally:
+                lines = list(f)
+            readSize += 40 * nrOfLines
+        # print("Took {} to get {} line from {}".format(readSize, nrOfLines, filename))
+    return lines[-nrOfLines:]
 
 
-coinye = CryptoDaemon(rpcServer, rpcUser, rpcPassword, rpcPort)
 
-lastBlock = coinye.getBlockCount()
+if __name__ == "__main__":
 
-block = load_json(transactionFile)
-txSerialNr = 0
+    coinye = CryptoDaemon(rpcServer, rpcUser, rpcPassword, rpcPort)
+    
+    if lastBlock is False:
+        lastBlock = coinye.getBlockCount()
 
-for blockNr in range(startBlock, lastBlock + 1):
-    block[blockNr] = coinye.getBlockByHeight(blockNr)
+    if os.path.isfile(transactionsTsvFile):
+        lastLine = tail(transactionsTsvFile,  1)[0].strip()
+        startBlock = int(lastLine.split('\t')[1])
+        txSerialNr = int(lastLine.split('\t')[0])
 
-    transactionHashes = block[blockNr]["tx"]
-    newTxList = {}
+        print("getting last block from {} as a starting point: {}, txNr = {}".format(transactionsTsvFile, startBlock, txSerialNr))
+    else:
+        txSerialNr = 0
+        lastLine = False
+        str_to_file("txSerialNr\tblockNr\tblockTime\tcoinbase\ttxHash\traw\tvin\tvout\tnrOfRecipients\trecipients\n", transactionsTsvFile)
 
-    for txNrInBlock, txHash in enumerate(transactionHashes):
-        coinbase = "cb" if txNrInBlock == 0 else "n" # Coinbase / normal
-        raw = coinye.method("getrawtransaction", [txHash])
-        decode = coinye.method("decoderawtransaction", [raw])
-        decode["raw"] = raw
+    # block = load_json(transactionFile)
+   
+    for blockNr in range(startBlock, lastBlock + 1):
+        block = {}
+        
+        block[blockNr] = coinye.getBlockByHeight(blockNr)
 
-        receiveAddr = []
-        for v in decode["vout"]:
-            for a in v["scriptPubKey"]["addresses"]:
-                receiveAddr.append(a)
+        transactionHashes = block[blockNr]["tx"]
+        newTxList = {}
 
-        newTxList[txHash] = decode
+        for txNrInBlock, txHash in enumerate(transactionHashes):
+            coinbase = "cb" if txNrInBlock == 0 else "n" # Coinbase / normal
 
-        csvData = "\t".join(map(str, [
-            txSerialNr,
-            blockNr,
-            block[blockNr]["time"],
-            coinbase,
-            txHash,
-            raw, 
-            len(decode["vin"]),
-            len(decode["vout"]),
-            len(receiveAddr),
-            receiveAddr
+            raw = coinye.tryMethod("getrawtransaction", [txHash])
+            decode = coinye.tryMethod("decoderawtransaction", [raw])
 
-        ]))
-        str_to_file(csvData + "\n", transactionsCsvFile)
+            decode["raw"] = raw
 
-        txSerialNr += 1
+            receiveAddr = []
+            for v in decode["vout"]:
+                for a in v["scriptPubKey"]["addresses"]:
+                    receiveAddr.append(a)
 
-    block[blockNr]["tx"]= newTxList
+            newTxList[txHash] = decode
 
-    if (blockNr % 10 == 0):
-        print("\rreading block {} from daemon  ".format(blockNr))
+            tsvData = "\t".join(map(str, [
+                txSerialNr,
+                blockNr,
+                block[blockNr]["time"],
+                coinbase,
+                txHash,
+                raw, 
+                len(decode["vin"]),
+                len(decode["vout"]),
+                len(receiveAddr),
+                receiveAddr
 
-save_json(block, transactionFile)
+            ]))
+
+            # Wait for the transaction to look exactly like the last transaction and then resume writing.
+            if lastLine:
+                if lastLine == tsvData:
+                    lastLine = False
+                    txSerialNr += 1
+            else:
+                str_to_file(tsvData + "\n", transactionsTsvFile)
+                txSerialNr += 1
+
+        block[blockNr]["tx"] = newTxList
+
+        if (blockNr % 10 == 0):
+            print("\rreading block {} from daemon  ".format(blockNr))
+
+        if lastLine: 
+            print("Something went wrong resuming. Last line from file:")
+            
+            print("[[[{}]]] {}".format(lastLine, len(lastLine)))
+            print("TSV Line:")
+            print("[[[{}]]] {}".format(tsvData, len(tsvData)))
+            print("Check the last line of {} and try deleting it.".format(transactionsTsvFile))
+            exit()
+

@@ -1,9 +1,9 @@
 import csv
 import sqlite3
 
-csvFileName = "E:/temp/coinye_stats.csv"
-sqliteFileName = "blockchain2.sqlite"
-tableName = "blocks"
+csvFileName = "transactions.tsv"
+sqliteFileName = "coinye_blockchain.sqlite"
+tableName = "transactions"
 
 def csvToSqlite(csvFileName, sqliteFileName, tableName, primaryColumn = 0, delimiter = '\t'):
     conn = sqlite3.connect(sqliteFileName)
