@@ -54,7 +54,7 @@ class CryptoDaemon:
         try:        
             responseRaw = requests.get(self.url, headers = self.headers, data = payload)
         except:
-            print("RCP Not responding... ", end = "")
+            print("RCP Not responding... ")
             return False
 
         response = responseRaw.json()
@@ -196,7 +196,7 @@ if __name__ == "__main__":
         block[blockNr]["tx"] = newTxList
 
         if (blockNr % 10 == 0):
-            print("\rreading block {} from daemon  ".format(blockNr))
+            print("reading block {} from daemon  ".format(blockNr))
 
         if lastLine: 
             print("Something went wrong resuming. Last line from file:")
